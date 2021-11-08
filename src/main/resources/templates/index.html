@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <!-- import CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+</head>
+
+<body>
+<div id="app">
+    <el-container style="height: 100ch; border: 1px solid #eee">
+        <el-dialog title="添加钱包" :visible.sync="addUserFormVisible">
+            <el-form style="width: 70ch;margin: 0 auto;" :model="addUserForm">
+                <el-form-item label="钱包地址" label-width="120px">
+                    <el-input v-model="addUserForm.address" autocomplete="off"></el-input>
+                </el-form-item>
+                <el-form-item label="钱包私钥" label-width="120px">
+                    <el-input v-model="addUserForm.privateKey" autocomplete="off"></el-input>
+                </el-form-item>
+            </el-form>
+            <div slot="footer" class="dialog-footer">
+                <el-button @click="addUserFormVisible = false">取 消</el-button>
+                <el-button type="primary" @click="addUserSubmit">确 定</el-button>
+            </div>
+        </el-dialog>
+        <el-dialog title="执行日志" :visible.sync="logVisible" @close="logInfoClose">
+            <el-input style="width: 500px;height: 500px" type="textarea" v-model="log"></el-input>
+        </el-dialog>
+        <el-aside width="200px" style="height:100ch;background-color: rgb(238, 241, 246)">
+            <el-menu>
+                <el-submenu index="1">
+                    <template #title><i class="el-icon-message"></i>科学家功能</template>
+                    <el-menu-item-group>
+                        <template #title>新币计划</template>
+                        <el-menu-item @click="makeNewCoinPlanOpen" index="1-1">设定计划</el-menu-item>
+                        <el-menu-item @click="showNewCoinPlanOpen" index="1-2">查看计划</el-menu-item>
+                    </el-menu-item-group>
+                    <el-menu-item-group title="量化交易">
+                        <el-menu-item index="1-3">自动波段交易(开发中)</el-menu-item>
+                    </el-menu-item-group>
+                </el-submenu>
+                <el-submenu index="2">
+                    <template #title><i class="el-icon-menu"></i>导航二</template>
+                    <el-menu-item-group>
+                        <template #title>分组一</template>
+                        <el-menu-item index="2-1">选项1</el-menu-item>
+                        <el-menu-item index="2-2">选项2</el-menu-item>
+                    </el-menu-item-group>
+                    <el-menu-item-group title="分组2">
+                        <el-menu-item index="2-3">选项3</el-menu-item>
+                    </el-menu-item-group>
+                    <el-submenu index="2-4">
+                        <template #title>选项4</template>
+                        <el-menu-item index="2-4-1">选项4-1</el-menu-item>
+                    </el-submenu>
+                </el-submenu>
+            </el-menu>
+        </el-aside>
+
+        <el-container>
+            <el-header style="text-align: right; font-size: 12px">
+                <el-select style="width: 400px" v-model="currentAddress" placeholder="请选择钱包地址">
+                    <el-option v-for="address in addressList" :label="address" :value="address"></el-option>
+                </el-select>
+                <el-button type="primary" @click="accUserButtonClick">新增钱包</el-button>
+            </el-header>
+            <el-main>
+                <div v-show="makeNewCoinPlan">
+                    <el-form ref="form" :model="makeNewCoin" :rules="rules" label-width="90px">
+                        <div style="width: 50ch;margin: 0 auto;">
+                            <el-form-item label="钱包地址" prop="userAddress">
+                                <el-input disabled="disabled" v-model="currentAddress"></el-input>
+                            </el-form-item>
+                            <el-form-item label="token地址" prop="tokenAddress">
+                                <el-input v-model="makeNewCoin.tokenAddress"></el-input>
+                            </el-form-item>
+                            <el-form-item label="执行时间" required>
+                                <el-col :span="12">
+                                    <el-form-item prop="date">
+                                        <el-date-picker type="date" placeholder="选择日期" v-model="makeNewCoin.date"
+                                                        value-format="yyyy-MM-dd"
+                                                        style="width: 100%;"></el-date-picker>
+                                    </el-form-item>
+                                </el-col>
+                                <el-col :span="12">
+                                    <el-form-item prop="time">
+                                        <el-time-picker type="date" placeholder="选择时间" v-model="makeNewCoin.time"
+                                                        value-format="HH:mm:ss"
+                                                        style="width: 100%;"></el-time-picker>
+                                    </el-form-item>
+                                </el-col>
+                            </el-form-item>
+                            <el-form-item label="购买数量" prop="amount">
+                                <el-input placeholder="花费多少bnb" v-model="makeNewCoin.amount"></el-input>
+                            </el-form-item>
+                            <el-form-item
+                                    label="gas倍数" prop="gasPriceK">
+                                <el-input placeholder="默认是1,推荐1.5" v-model="makeNewCoin.gasPriceK"></el-input>
+                            </el-form-item>
+                            <el-form-item
+                                    label="卖出倍数" prop="sellPriceK">
+                                <el-input placeholder="当前价格为购买价格几倍时卖出" v-model="makeNewCoin.sellPriceK"></el-input>
+                            </el-form-item>
+                            <el-form-item
+                                    label="卖出比例" prop="sellNumK">
+                                <el-input placeholder="范围0-1" v-model="makeNewCoin.sellNumK"></el-input>
+                            </el-form-item>
+                        </div>
+                        <div style="width: 100%;">
+                            <span>高级模式(可选)</span>
+                            <hr/>
+                            <el-row :gutter="20">
+                                <el-col :span="8">
+                                    <el-form-item
+                                            style="width: 30ch"
+                                            label="指定区块" prop="integerNoNeed">
+                                        <el-input placeholder="指定第几区块后买入" v-model="makeNewCoin.blockNumber"></el-input>
+                                    </el-form-item>
+                                </el-col>
+                                <el-col :span="8">
+                                    <el-form-item
+                                            style="width: 30ch"
+                                            label="设置滑点" prop="numberNoNeed">
+                                        <el-input placeholder="滑点低于49.9可防止被燃烧"
+                                                  v-model="makeNewCoin.slipPoint"></el-input>
+                                    </el-form-item>
+                                </el-col>
+                                <el-col :span="8">
+                                    <el-form-item label="失败重试">
+                                        <el-switch v-model="makeNewCoin.ifRetry"></el-switch>
+                                    </el-form-item>
+                                </el-col>
+                            </el-row>
+
+                        </div>
+
+
+                        <div style="width: 50ch;margin: 0 auto;">
+                            <el-form-item>
+                                <el-button type="primary" @click="makeNewPlan">创建计划</el-button>
+                                <el-button>取消</el-button>
+                            </el-form-item>
+                        </div>
+                    </el-form>
+                </div>
+                <div v-show="showNewCoinPlan">
+                    <template>
+                        <el-table
+                                :data="planList"
+                                border
+                                style="width: 100%">
+                            <el-table-column
+                                    prop="address"
+                                    label="钱包地址"
+                                    width="370">
+                            </el-table-column>
+                            <el-table-column
+                                    prop="tokenAddress"
+                                    label="token地址"
+                                    width="370">
+                            </el-table-column>
+                            <el-table-column
+                                    prop="tokenName"
+                                    label="tokenName"
+                                    width="100">
+                            </el-table-column>
+                            <el-table-column
+                                    prop="dateTime"
+                                    label="执行时间"
+                                    width="110">
+                            </el-table-column>
+                            <el-table-column
+                                    label="执行状态"
+                                    width="120"
+                            >
+                                <template slot-scope="scope">
+                                    <el-button v-if="scope.row.status == 0" type="info">未执行</el-button>
+                                    <el-button v-if="scope.row.status == 1" type="primary" :loading="true">执行中
+                                    </el-button>
+                                    <el-button v-if="scope.row.status == 2" type="success">执行完成</el-button>
+                                </template>
+                            </el-table-column>
+                            <el-table-column
+                                    prop="amount"
+                                    label="购买数量"
+                                    width="80">
+                            </el-table-column>
+                            <el-table-column
+                                    prop="gasPriceK"
+                                    label="gas倍数"
+                                    width="80">
+                            </el-table-column>
+                            <el-table-column
+                                    prop="sellPriceK"
+                                    label="卖出倍数"
+                                    width="80">
+                            </el-table-column>
+                            <el-table-column
+                                    prop="sellNumK"
+                                    label="卖出比例"
+                                    width="80">
+                            </el-table-column>
+                            <el-table-column
+                                    fixed="right"
+                                    label="操作"
+                                    width="100">
+                                <template slot-scope="scope">
+                                    <el-button type="text" size="small" @click="lookPlanLog(scope.row.id)">查看
+                                    </el-button>
+                                    <el-button type="text" v-if="scope.row.status != 2" size="small"
+                                               @click="deletePlan(scope.row.id)">停止
+                                    </el-button>
+                                    <el-button type="text" v-if="scope.row.status == 2" size="small"
+                                               @click="deletePlan(scope.row.id)">删除
+                                    </el-button>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                    </template>
+                </div>
+            </el-main>
+        </el-container>
+    </el-container>
+</div>
+
+</body>
+
+<style>
+    .el-header {
+        background-color: #B3C0D1;
+        color: #333;
+        line-height: 60px;
+    }
+
+    .el-aside {
+        color: #333;
+    }
+</style>
+<!-- import Vue before Element -->
+<script src="https://unpkg.com/vue/dist/vue.js"></script>
+<!-- import JavaScript -->
+<script src="https://unpkg.com/element-ui/lib/index.js"></script>
+<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+<script>
+
+    new Vue({
+        el: '#app',
+        mounted() {
+            var _this = this;
+            axios.get('/getAddressList').then(function (response) {
+                if (response != null) {
+                    _this.addressList = response.data;
+                }
+            }).catch(function (error) {
+                console.log(error);
+                _this.$message({
+                    message: '失败',
+                    type: 'error'
+                });
+            });
+        },
+        data: function () {
+            var checkNumber = (rule, value, callback) => {
+                var reg = /^[-\+]?\d+(\.\d+)?$/;
+                if (!reg.test(value)) {
+                    callback(new Error('请输入正确的数量'));
+                } else {
+                    if (value < 0) {
+                        callback(new Error('必须大于0'));
+                    } else {
+                        callback();
+                    }
+                }
+            };
+            return {
+                rules: {
+                    userAddress: [
+                        {required: true, message: '请选择钱包地址', trigger: 'blur'}
+                    ],
+                    tokenAddress: [
+                        {required: true, message: '请输入合约地址', trigger: 'blur'}
+                    ],
+                    date: [
+                        {type: 'date', required: true, message: '请选择执行日期', trigger: 'change'}
+                    ],
+                    time: [
+                        {type: 'date', required: true, message: '请选择执行时间', trigger: 'change'}
+                    ],
+                    amount: [
+                        {required: true, message: 'amount不能为空'},
+                        {validator: checkNumber, trigger: 'blur'}
+                    ],
+                    gasPriceK: [
+                        {required: true, message: 'gas倍数不能为空'},
+                        {validator: checkNumber, trigger: 'blur'}
+                    ],
+                    sellPriceK: [
+                        {required: true, message: '卖出倍数不能为空'},
+                        {validator: checkNumber, trigger: 'blur'}
+                    ],
+                    sellNumK: [
+                        {required: true, message: '卖出比例不能为空'},
+                        {validator: checkNumber, trigger: 'blur'}
+                    ]
+
+                },
+                currentAddress: "",
+                timer: '',
+                addressList: [],
+                log: '',
+                makeNewCoinPlan: false,
+                showNewCoinPlan: false,
+                addUserFormVisible: false,
+                logVisible: false,
+                planList: [],
+                makeNewCoin: {
+                    address: '',
+                    tokenAddress: '',
+                    date: '',
+                    time: '',
+                    amount: '',
+                    gasPriceK: '',
+                    sellPriceK: '',
+                    sellNumK: '',
+                    blockNumber: '',
+                    slipPoint: '',
+                    ifRetry: false
+                },
+                addUserForm: {
+                    address: '',
+                    privateKey: ''
+                }
+            }
+        },
+        methods: {
+            deletePlan(id) {
+                var _this = this;
+                axios.post('/deletePlan', id).then(function (response) {
+                    if (response.data == "success") {
+                        _this.$message({
+                            message: '成功',
+                            type: 'success'
+                        });
+                        _this.showNewCoinPlanOpen();
+                    }
+                }).catch(function (error) {
+                    console.log(error);
+                    _this.$message({
+                        message: '失败',
+                        type: 'error'
+                    });
+                });
+            },
+            logInfoClose() {
+                clearInterval(this.timer);
+            },
+            lookPlanLog(id) {
+                this.logVisible = true;
+                var _this = this;
+                this.timer = setInterval(function () {
+                    axios.post('/getLogById', id).then(function (response) {
+                        if (response != null) {
+                            _this.log = response.data;
+                        }
+                    }).catch(function (error) {
+                        console.log(error);
+                    });
+                }, 500);
+            },
+            makeNewPlan() {
+                var _this = this;
+                this.makeNewCoin.address = this.currentAddress;
+                if (this.makeNewCoin.address == "" || this.makeNewCoin.tokenAddress == "" || this.makeNewCoin.date == "" || this.makeNewCoin.time == ""
+                    || this.makeNewCoin.amount == "" || this.makeNewCoin.gasPriceK == "" || this.makeNewCoin.sellPriceK == "" || this.makeNewCoin.sellNumK == "") {
+                    this.$message({
+                        message: '参赛不能为空',
+                        type: 'error'
+                    });
+                    return;
+                }
+                axios.post('/makeNewCoinPlan', this.makeNewCoin).then(function (response) {
+                    if (response.data == "success") {
+                        _this.showNewCoinPlanOpen();
+                        _this.$message({
+                            message: '创建成功',
+                            type: 'success'
+                        });
+                    } else if (response.data == "fail") {
+                        _this.$message({
+                            message: '创建失败',
+                            type: 'error'
+                        });
+                    }
+                }).catch(function (error) {
+                    console.log(error);
+                    _this.$message({
+                        message: '创建失败',
+                        type: 'error'
+                    });
+                });
+            },
+            accUserButtonClick() {
+                this.addUserFormVisible = true;
+                this.addUserForm = {};
+            },
+            makeNewCoinPlanOpen() {
+                this.showNewCoinPlan = false;
+                this.makeNewCoinPlan = true;
+            },
+            showNewCoinPlanOpen() {
+                this.makeNewCoinPlan = false;
+                this.showNewCoinPlan = true;
+                var _this = this;
+                axios.get('/getNewCoinPlanList').then(function (response) {
+                    if (response.data != null) {
+                        _this.planList = response.data;
+                    }
+                }).catch(function (error) {
+                    console.log(error);
+                    _this.$message({
+                        message: '获取失败',
+                        type: 'error'
+                    });
+                });
+            },
+            addUserSubmit() {
+                this.addUserFormVisible = false;
+                var _this = this;
+                axios.post('/addUser', this.addUserForm).then(function (response) {
+                    if (response.data == "success") {
+                        _this.addressList.push(_this.addUserForm.address);
+                        _this.$message({
+                            message: '添加成功',
+                            type: 'success'
+                        });
+                    } else if (response.data == "fail") {
+                        _this.$message({
+                            message: '添加失败',
+                            type: 'error'
+                        });
+                    }
+                }).catch(function (error) {
+                    console.log(error);
+                    _this.$message({
+                        message: '添加失败',
+                        type: 'error'
+                    });
+                });
+            },
+            handleOpen(key, keyPath) {
+                console.log(key, keyPath);
+            },
+            handleClose(key, keyPath) {
+                console.log(key, keyPath);
+            }
+        }
+    })
+</script>
+</html>
